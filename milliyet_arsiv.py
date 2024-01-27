@@ -2,7 +2,6 @@ import requests
 import re
 import os
 import img2pdf
-import requests
 import datetime
 
 
