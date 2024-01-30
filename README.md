@@ -11,11 +11,11 @@ The script then constructs a URL using the input date and sends a GET request to
 ## Dependencies
 This script requires the following Python libraries:
 
-requests: Used to send the HTTP request.
-re: Used for regular expressions.
-os: Used for interacting with the operating system.
-img2pdf: Used for converting images to PDF.
-datetime: Used for date and time operations.
-Usage
+* requests: Used to send the HTTP request.
+* re: Used for regular expressions.
+* os: Used for interacting with the operating system.
+* img2pdf: Used for converting images to PDF.
+* datetime: Used for date and time operations.
+## Usage
 To use this script, simply run it in a Python environment. When prompted, input a date in the 'YYYY.MM.DD' format. The script will then fetch data from the Milliyet Newspaper Archive for that date.
 
