@@ -3,86 +3,211 @@ import re
 import os
 import img2pdf
 import datetime
-
-
-if not os.path.exists('images'):
-    os.makedirs('images')
-
-date_input = input("Gazete tarihini YYYY.MM.DD formatinda gir : ")
+import concurrent.futures
+import logging
+import sys
+from pathlib import Path
+from tqdm import tqdm
 
 try:
-    datetime.datetime.strptime(date_input, '%Y.%m.%d')
-except ValueError:
-    raise ValueError("Yanlis tarih formati. Tarihi YYYY.MM.DD formatinda girin.")
+    sys.stdout.reconfigure(encoding='utf-8')
+except AttributeError:
+    # For older Python versions
+    pass
 
-url = f"https://gazetearsivi.milliyet.com.tr/liste?tarih={date_input}"
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+logger = logging.getLogger(__name__)
 
-headers = {
-    'authority': 'gazetearsivi.milliyet.com.tr',
-    'accept': '*/*',
-    'accept-language': 'de-DE,de;q=0.9,tr-TR;q=0.8,tr;q=0.7,en-US;q=0.6,en;q=0.5',
-    'cookie': '.DM.SharedCookie={"access_token":"eyJhbGciOiJSUzI1NiIsImtpZCI6IjVEMDFENjg4NEUzMUEwQTJEOTEyQzYxMjIxMzA0OTg0RDVDMkQ1MzhSUzI1NiIsInR5cCI6ImF0K2p3dCIsIng1dCI6IlhRSFdpRTR4b0tMWkVzWVNJVEJKaE5YQzFUZyJ9.eyJuYmYiOjE3MDYzNDY3MzksImV4cCI6MTczNzg4MjczOSwiaXNzIjoiaHR0cHM6Ly91eWVsaWstc3NvMS5kZW1pcm9yZW5tZWR5YS5jb20iLCJzdWIiOiJkZGEyNDdkNC01NDYxLTRhNWYtOGYxOS1iNDRkNWFiYmQ3N2YiLCJjbGllbnRfaWQiOiJtdmMiLCJhdWQiOiJhcGkxIn0.StFw5m6UutoVqQL4MAn_zc0ZKJ10kQ5wJSExFQepHCVACPp385yvI52zh3n-3e8U0uoxshqCYKWfyFoDcVG1rGQRYTOy1mtpXVTxvbVWM4xaE7pHN890ZbV53CXZQnw2vHgZ3dtbJiyuWB1BYZsTsmQtuD2y-1JLrB5hunpqqfsGznuEyVc0D7lbzDKHKkScOX9aj1NALDzw_Pym06OdeyoCOGIFzDzUCXSCXdEjvFvckCak8SPiWPD10uONgvTqCsj5Ep206HBGmSeuAvMCt0pdTBzOVKjt_XosvUWFCTBmyWd82fE8TcTyVVn1I0mOZCExR_mAbj6awncb8hR84A","expires_in":31536000,"token_type":"Bearer","scope":"api1 offline_access openid profile"}',
-    'dnt': '1',
-    'next-router-state-tree': '%5B%22%22%2C%7B%22children%22%3A%5B%22__PAGE__%22%2C%7B%7D%5D%7D%2Cnull%2Cnull%2Ctrue%5D',
-    'next-url': '/',
-    'referer': 'https://gazetearsivi.milliyet.com.tr/',
-    'rsc': '1',
-    'sec-ch-ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
-    'sec-ch-ua-mobile': '?0',
-    'sec-ch-ua-platform': '"Windows"',
-    'sec-fetch-dest': 'empty',
-    'sec-fetch-mode': 'cors',
-    'sec-fetch-site': 'same-origin',
-    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-}
+class MilliyetArchiveDownloader:
+    def __init__(self):
+        self.base_url = "https://gazetearsivi.milliyet.com.tr"
+        self.api_url = "https://gazetearsivi-api.milliyet.com.tr/api/v1"
+        self.headers = {
+            'authority': 'gazetearsivi.milliyet.com.tr',
+            'accept': '*/*',
+            'accept-language': 'de-DE,de;q=0.9,tr-TR;q=0.8,tr;q=0.7,en-US;q=0.6,en;q=0.5',
+            'cookie': '.DM.SharedCookie={"access_token":"AE653A5343D05242AB352379D55536D0DB81D4AAD00E4F566435C6F3DAD7FB32","expires_in":31536000,"token_type":"Bearer","scope":"api1 offline_access openid profile"}',
+            'dnt': '1',
+            'next-router-state-tree': '%5B%22%22%2C%7B%22children%22%3A%5B%22__PAGE__%22%2C%7B%7D%5D%7D%2Cnull%2Cnull%2Ctrue%5D',
+            'next-url': '/',
+            'referer': 'https://gazetearsivi.milliyet.com.tr/',
+            'rsc': '1',
+            'sec-ch-ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+            'sec-ch-ua-mobile': '?0',
+            'sec-ch-ua-platform': '"Windows"',
+            'sec-fetch-dest': 'empty',
+            'sec-fetch-mode': 'cors',
+            'sec-fetch-site': 'same-origin',
+            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        }
+        self.access_token = self.headers['cookie'].split('access_token":"')[1].split('"')[0]
+        self.image_headers = {'Authorization': self.access_token}
+        
+        self.images_dir = Path('images')
+        self.pdfs_dir = Path('pdfs')
+        self.images_dir.mkdir(exist_ok=True)
+        self.pdfs_dir.mkdir(exist_ok=True)
 
-response = requests.get(url, headers=headers)
-if response.status_code == 200:
-    # Search for "virtualCopyId" followed by any number of spaces, a colon, any number of spaces, and a string enclosed in quotes
-    virtualCopyId_matches = re.findall(r'"virtualCopyId"\s*:\s*"([^"]*)"', response.text)
-    # Search for "broadcastName" followed by any number of spaces, a colon, any number of spaces, and a string enclosed in quotes
-    broadcastName_matches = re.findall(r'"broadcastName"\s*:\s*"([^"]*)"', response.text)
-    # Extract the access_token from the cookie
-    access_token = headers['cookie'].split('access_token":"')[1].split('"')[0]
-    image_headers = {
-        'Authorization': access_token
-    }
+    def validate_date(self, date_str):
+        """Validate the date format."""
+        try:
+            return datetime.datetime.strptime(date_str, '%Y.%m.%d')
+        except ValueError:
+            logger.error("Invalid date format. Please use YYYY.MM.DD format.")
+            return None
 
-for virtualCopyId, broadcastName in zip(virtualCopyId_matches, broadcastName_matches):
-    url = f"https://gazetearsivi-api.milliyet.com.tr/api/v1/Newspaper/GetNewspaperPages/{virtualCopyId}"
-    response = requests.get(url, headers=headers)
-    if response.status_code == 200:
-        print(f"{virtualCopyId} icin veriler basariyla alindi")
+    def sanitize_filename(self, filename):
+        """Sanitize filename to remove illegal characters."""
+        # Replace any characters that might cause issues in filenames
+        illegal_chars = ['<', '>', ':', '"', '/', '\\', '|', '?', '*']
+        for char in illegal_chars:
+            filename = filename.replace(char, '_')
+        return filename
+
+    def get_newspaper_info(self, date_str):
+        """Get newspaper information for a specific date."""
+        url = f"{self.base_url}/liste?tarih={date_str}"
+        logger.info(f"Getting newspaper list for date: {date_str}")
+        
+        response = requests.get(url, headers=self.headers)
+        response.encoding = 'utf-8'  # Ensure UTF-8 encoding
+        
+        if response.status_code != 200:
+            logger.error(f"Failed to get newspaper list: Status code {response.status_code}")
+            return []
+
+        virtual_copy_ids = re.findall(r'"virtualCopyId"\s*:\s*"([^"]*)"', response.text)
+        broadcast_names = re.findall(r'"broadcastName"\s*:\s*"([^"]*)"', response.text)
+        
+        # Fix encoding if needed
+        broadcast_names = [name.encode('latin1').decode('utf-8') if '%' in name else name for name in broadcast_names]
+        
+        if not virtual_copy_ids:
+            logger.warning(f"No newspapers found for date {date_str}")
+            return []
+        
+        logger.info(f"Found {len(virtual_copy_ids)} newspapers")
+        return list(zip(virtual_copy_ids, broadcast_names))
+
+    def download_page(self, image_url, page_no):
+        """Download a single newspaper page."""
+        try:
+            response = requests.get(image_url, headers=self.image_headers)
+            if response.status_code == 200:
+                file_path = self.images_dir / f"page_{page_no}.jpg"
+                with open(file_path, 'wb') as f:
+                    f.write(response.content)
+                return file_path
+            else:
+                logger.error(f"Failed to download page {page_no}: Status code {response.status_code}")
+                return None
+        except Exception as e:
+            logger.error(f"Error downloading page {page_no}: {e}")
+            return None
+
+    def download_newspaper(self, virtual_copy_id, broadcast_name, date_str):
+        """Download all pages of a newspaper and create PDF."""
+        logger.info(f"Processing: {broadcast_name} (ID: {virtual_copy_id})")
+        
+        # Clear any existing images from previous runs
+        for file in self.images_dir.glob("*.jpg"):
+            file.unlink()
+        
+        # Get newspaper pages
+        url = f"{self.api_url}/Newspaper/GetNewspaperPages/{virtual_copy_id}"
+        response = requests.get(url, headers=self.headers)
+        response.encoding = 'utf-8'  # Ensure UTF-8 encoding
+        
+        if response.status_code != 200:
+            logger.error(f"Failed to get newspaper pages: Status code {response.status_code}")
+            return None
+        
         response_json = response.json()
-
-        if not response_json.get('hasError'):
-            for page in response_json['result']['virtualPages']:
-                image_url = "https://gazetearsivi-api.milliyet.com.tr/api/v1/NewspaperImage" + page['pageFileOrjUrl']
-                image_response = requests.get(image_url, headers=image_headers)
-                if image_response.status_code == 200:
-                    print(f"Sayfa {page['pageNo']} indirildi")
-                    with open(os.path.join('images', f"page_{page['pageNo']}.jpg"), 'wb') as f:
-                        f.write(image_response.content)
-                else:
-                    print(f"Failed to download page {page['pageNo']}")
-                    print(f"Image URL: {image_url}")
-                    print(f"Response status code: {image_response.status_code}")
+        if response_json.get('hasError'):
+            logger.error(f"API returned error: {response_json.get('message', 'Unknown error')}")
+            return None
+        
+        pages = response_json['result']['virtualPages']
+        logger.info(f"Downloading {len(pages)} pages for {broadcast_name}")
+        
+        # Download pages in parallel
+        successful_downloads = []
+        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+            # Create a dictionary to keep track of futures and their page numbers
+            future_to_page = {}
+            
+            for page in pages:
+                image_url = f"{self.api_url}/NewspaperImage{page['pageFileOrjUrl']}"
+                future = executor.submit(self.download_page, image_url, page['pageNo'])
+                future_to_page[future] = page['pageNo']
+            
+            # Process results with a progress bar
+            for future in tqdm(concurrent.futures.as_completed(future_to_page), total=len(pages), desc="Downloading pages"):
+                page_no = future_to_page[future]
+                try:
+                    file_path = future.result()
+                    if file_path:
+                        successful_downloads.append((page_no, file_path))
+                except Exception as e:
+                    logger.error(f"Error processing download for page {page_no}: {e}")
+        
+        # Create PDF if we have any successful downloads
+        if successful_downloads:
+            # Sort by page number
+            successful_downloads.sort(key=lambda x: x[0])
+            
+            # Sanitize the broadcast name for the filename
+            safe_name = self.sanitize_filename(broadcast_name)
+            pdf_path = self.pdfs_dir / f"{safe_name}_{date_str}.pdf"
+            logger.info(f"Creating PDF: {pdf_path}")
+            
+            with open(pdf_path, "wb") as f:
+                f.write(img2pdf.convert([str(path) for _, path in successful_downloads]))
+            
+            logger.info(f"PDF successfully created: {pdf_path}")
+            return pdf_path
         else:
-            print(f"Failed to fetch newspaper pages. Status code: {response.status_code}")
+            logger.error("No pages were downloaded successfully. Cannot create PDF.")
+            return None
 
-    # After downloading all images, merge them into a PDF
-    with open(f"{broadcastName}_{date_input}.pdf", "wb") as f:
-        print("PDF olusturuyor...")
-        imgs = []
-        for file_name in sorted(os.listdir('images'), key=lambda x: int(x.split('_')[1].split('.')[0])):
-            if file_name.endswith(".jpg"):
-                imgs.append(os.path.join('images', file_name))
-        f.write(img2pdf.convert(imgs))
-        print("PDF basariyla olusturuldu")
+    def process_date(self, date_str):
+        """Process all newspapers for a specific date."""
+        if not self.validate_date(date_str):
+            return []
+        
+        newspapers = self.get_newspaper_info(date_str)
+        if not newspapers:
+            logger.warning(f"No newspapers found for date {date_str}")
+            return []
+        
+        results = []
+        for virtual_copy_id, broadcast_name in newspapers:
+            pdf_path = self.download_newspaper(virtual_copy_id, broadcast_name, date_str)
+            if pdf_path:
+                results.append((broadcast_name, date_str, pdf_path))
+        
+        return results
 
-    # Temizle
-    print("images klasörü temizleniyor...")
-    for file_name in os.listdir('images'):
-        if file_name.endswith(".jpg"):
-            os.remove(os.path.join('images', file_name))
-    print("images klasörü temizlendi!")
+
+def main():
+    date_input = input("Gazete tarihini YYYY.MM.DD formatinda gir: ")
+    
+    downloader = MilliyetArchiveDownloader()
+    results = downloader.process_date(date_input)
+    
+    if results:
+        logger.info("Download summary:")
+        for broadcast_name, date_str, pdf_path in results:
+            logger.info(f"• {broadcast_name} ({date_str}): {pdf_path}")
+    else:
+        logger.warning("No newspapers were downloaded successfully")
+        logger.info("Note: Try a different date if the archive doesn't have newspapers for this period.")
+
+
+if __name__ == '__main__':
+    main()
