@@ -13,16 +13,26 @@
     error = null;
     
     try {
+      console.log(`Searching for newspapers on date: ${date}`);
+      
       // Use the full backend URL in production
       const apiUrl = import.meta.env.PROD 
         ? 'https://milliyet-archive.onrender.com/api/search' 
         : '/api/search';
       
+      console.log(`Using API URL: ${apiUrl}`);
+      
       const response = await fetch(apiUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ date })
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({ date }),
+        mode: 'cors' // Explicitly request CORS
       });
+      
+      console.log(`Response status: ${response.status}`);
       
       if (!response.ok) {
         try {
@@ -30,14 +40,17 @@
           throw new Error(errorData.error || 'Failed to search newspapers');
         } catch (e) {
           // If parsing JSON fails, it's likely an HTML response
+          console.error('Failed to parse error response:', e);
           throw new Error('Server returned an invalid response. API might be unavailable.');
         }
       }
       
       const data = await response.json();
+      console.log(`Received ${data.newspapers?.length || 0} newspapers`);
       searchResults = data.newspapers || [];
     } catch (err) {
-      error = err.message;
+      console.error('Search error:', err);
+      error = err.message || 'Failed to fetch';
       searchResults = [];
     } finally {
       loading = false;
