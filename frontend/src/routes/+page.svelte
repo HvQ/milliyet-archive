@@ -13,15 +13,25 @@
     error = null;
     
     try {
-      const response = await fetch('/api/search', {
+      // Use the full backend URL in production
+      const apiUrl = import.meta.env.PROD 
+        ? 'https://milliyet-archive.onrender.com/api/search' 
+        : '/api/search';
+      
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ date })
       });
       
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to search newspapers');
+        try {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to search newspapers');
+        } catch (e) {
+          // If parsing JSON fails, it's likely an HTML response
+          throw new Error('Server returned an invalid response. API might be unavailable.');
+        }
       }
       
       const data = await response.json();
