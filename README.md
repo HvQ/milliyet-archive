@@ -1,9 +1,70 @@
-# milliyet-archive
-This script is used to fetch data from the Milliyet Newspaper Archive (https://gazetearsivi.milliyet.com.tr) based on a specific date input by the user.
+# Milliyet Archive Application
 
-### How it works
-The script prompts the user to input a date in the format 'YYYY.MM.DD'. It then constructs a URL using the input date and sends a GET request to the Milliyet Newspaper Archive. The headers for the request are predefined in the script.
+This project provides a web application for searching and downloading newspapers from the Milliyet newspaper archive.
 
-### Usage
-To use this script, simply run it in a Python environment. When prompted, input a date in the 'YYYY.MM.DD' format. The script will then fetch data from the Milliyet Newspaper Archive for that date.
+## Project Structure
 
+- `milliyet_archive.py` - Core functionality for interacting with the Milliyet archive
+- `app.py` - Flask API for serving the backend
+- `frontend/` - SvelteKit frontend application
+
+## Backend Setup
+
+1. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+2. Run the Flask development server:
+```bash
+python app.py
+```
+
+## Frontend Setup
+
+1. Navigate to the frontend directory:
+```bash
+cd frontend
+```
+
+2. Install dependencies:
+```bash
+npm install
+```
+
+3. Run the development server:
+```bash
+npm run dev
+```
+
+## Deployment
+
+### Backend (Render.com)
+
+1. Connect your GitHub repository to Render.com
+2. Create a new Web Service
+3. Select the Python environment
+4. Use the settings defined in `render.yaml`
+
+### Frontend (Vercel/Netlify)
+
+1. Build the frontend for production:
+```bash
+cd frontend
+npm run build
+```
+
+2. Deploy the `frontend/build` directory to your preferred static hosting provider
+
+## Configuration
+
+The application uses environment variables for configuration:
+
+- `PORT` - Port to run the server on (default: 5000)
+- `RENDER` - Set by Render.com in production
+
+## API Endpoints
+
+- `POST /api/search` - Search for newspapers by date
+- `POST /api/download` - Download a specific newspaper
+- `GET /health` - Health check endpoint

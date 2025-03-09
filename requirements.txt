@@ -1,0 +1,5 @@
+requests
+img2pdf
+tqdm
+Flask
+gunicorn
