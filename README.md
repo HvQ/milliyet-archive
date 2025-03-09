@@ -45,16 +45,21 @@ npm run dev
 2. Create a new Web Service
 3. Select the Python environment
 4. Use the settings defined in `render.yaml`
+5. Take note of your backend URL (e.g., `https://milliyet-archive.onrender.com`)
 
 ### Frontend (Vercel/Netlify)
 
-1. Build the frontend for production:
+1. Update the API URLs in the frontend code:
+   - In `src/routes/+page.svelte` and `src/routes/viewer/+page.svelte`
+   - Replace `https://milliyet-archive.onrender.com` with your actual backend URL if different
+
+2. Build the frontend for production:
 ```bash
 cd frontend
 npm run build
 ```
 
-2. Deploy the `frontend/build` directory to your preferred static hosting provider
+3. Deploy the `frontend/build` directory to your preferred static hosting provider
 
 ## Configuration
 

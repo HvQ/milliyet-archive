@@ -74,25 +74,36 @@ class MilliyetArchiveDownloader:
         url = f"{self.base_url}/liste?tarih={date_str}"
         logger.info(f"Getting newspaper list for date: {date_str}")
         
-        response = requests.get(url, headers=self.headers)
-        response.encoding = 'utf-8'  # Ensure UTF-8 encoding
-        
-        if response.status_code != 200:
-            logger.error(f"Failed to get newspaper list: Status code {response.status_code}")
-            return []
+        try:
+            response = requests.get(url, headers=self.headers)
+            response.encoding = 'utf-8'  # Ensure UTF-8 encoding
+            
+            if response.status_code != 200:
+                logger.error(f"Failed to get newspaper list: Status code {response.status_code}")
+                return []
 
-        virtual_copy_ids = re.findall(r'"virtualCopyId"\s*:\s*"([^"]*)"', response.text)
-        broadcast_names = re.findall(r'"broadcastName"\s*:\s*"([^"]*)"', response.text)
-        
-        # Fix encoding if needed
-        broadcast_names = [name.encode('latin1').decode('utf-8') if '%' in name else name for name in broadcast_names]
-        
-        if not virtual_copy_ids:
-            logger.warning(f"No newspapers found for date {date_str}")
+            # Log a sample of the response for debugging
+            logger.info(f"Response sample (first 200 chars): {response.text[:200]}...")
+            
+            virtual_copy_ids = re.findall(r'"virtualCopyId"\s*:\s*"([^"]*)"', response.text)
+            broadcast_names = re.findall(r'"broadcastName"\s*:\s*"([^"]*)"', response.text)
+            
+            logger.info(f"Raw data - IDs found: {len(virtual_copy_ids)}, Names found: {len(broadcast_names)}")
+            
+            # Fix encoding if needed
+            broadcast_names = [name.encode('latin1').decode('utf-8') if '%' in name else name for name in broadcast_names]
+            
+            if not virtual_copy_ids:
+                logger.warning(f"No newspapers found for date {date_str}")
+                return []
+            
+            result = list(zip(virtual_copy_ids, broadcast_names))
+            logger.info(f"Found {len(result)} newspapers: {result}")
+            return result
+            
+        except Exception as e:
+            logger.error(f"Exception in get_newspaper_info: {str(e)}")
             return []
-        
-        logger.info(f"Found {len(virtual_copy_ids)} newspapers")
-        return list(zip(virtual_copy_ids, broadcast_names))
 
     def download_page(self, image_url, page_no):
         """Download a single newspaper page."""

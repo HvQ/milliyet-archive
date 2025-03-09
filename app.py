@@ -86,9 +86,28 @@ def index():
         "endpoints": [
             {"path": "/api/search", "method": "POST", "description": "Search for newspapers by date"},
             {"path": "/api/download", "method": "POST", "description": "Download a newspaper"},
-            {"path": "/health", "method": "GET", "description": "Health check"}
+            {"path": "/health", "method": "GET", "description": "Health check"},
+            {"path": "/test-search/<date>", "method": "GET", "description": "Test search by date (GET method)"}
         ]
     })
+    
+@app.route('/test-search/<date>', methods=['GET'])
+def test_search(date):
+    """Test endpoint for direct GET requests to search newspapers."""
+    try:
+        print(f"Testing search for newspapers on date: {date}")
+        downloader = MilliyetArchiveDownloader()
+        newspapers = downloader.get_newspaper_info(date)
+        
+        print(f"Found {len(newspapers)} newspapers")
+        
+        return jsonify({
+            "date": date,
+            "newspapers": [{"id": id, "name": name} for id, name in newspapers]
+        })
+    except Exception as e:
+        print(f"Error in test_search: {str(e)}")
+        return jsonify({"error": f"Server error: {str(e)}"}), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))

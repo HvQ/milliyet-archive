@@ -23,15 +23,34 @@
         newspaperName = decodeURIComponent(name);
         loading = true;
         
-        const response = await fetch('/api/download', {
+        // Use the full backend URL in production
+        const apiUrl = import.meta.env.PROD 
+          ? 'https://milliyet-archive.onrender.com/api/download' 
+          : '/api/download';
+          
+        console.log(`Downloading newspaper ID: ${id}, Name: ${newspaperName}, Date: ${date}`);
+        console.log(`Using API URL: ${apiUrl}`);
+        
+        const response = await fetch(apiUrl, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id, name: newspaperName, date })
+          headers: { 
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'  
+          },
+          body: JSON.stringify({ id, name: newspaperName, date }),
+          mode: 'cors' // Explicitly request CORS
         });
         
+        console.log(`Response status: ${response.status}`);
+        
         if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to download newspaper');
+          try {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to download newspaper');
+          } catch (e) {
+            // If parsing JSON fails, it's likely an HTML response
+            throw new Error('Server returned an invalid response. API might be unavailable.');
+          }
         }
         
         const data = await response.json();

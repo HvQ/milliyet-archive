@@ -78,6 +78,19 @@
     <DatePicker />
   </div>
   
+  <div class="max-w-md mx-auto mb-6">
+    <button
+      class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded inline-flex items-center w-full justify-center"
+      on:click={() => {
+        if ($dateStore) {
+          window.open(`https://milliyet-archive.onrender.com/test-search/${$dateStore}`, '_blank');
+        }
+      }}
+    >
+      Test Direct API Access
+    </button>
+  </div>
+
   {#if loading}
     <div class="text-center py-8">
       <div class="inline-block animate-spin h-8 w-8 border-4 border-gray-300 border-t-blue-600 rounded-full"></div>
