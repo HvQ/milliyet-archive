@@ -2,4 +2,5 @@ requests
 img2pdf
 tqdm
 Flask
+flask-cors
 gunicorn
