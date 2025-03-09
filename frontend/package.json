@@ -31,5 +31,8 @@
   "dependencies": {
     "dayjs": "^1.11.9",
     "pdfjs-dist": "^3.9.179"
+  },
+  "engines": {
+    "node": "18.x"
   }
 }
